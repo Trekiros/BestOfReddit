@@ -3,6 +3,9 @@ const { google } = require('googleapis')
 const fs = require('fs')
 const util = require('util')
 
+/**
+ * @type {<T, U> (thisArg: {[key: T]: (U, (err, res) => void) => void}, methodName: T) => (U) => Promise(void)}
+ */
 function promisify(thisArg, methodName) {
     return util.promisify(thisArg[methodName].bind(thisArg))
 }
@@ -67,10 +70,77 @@ exports.default = async ({ credentials, spreadsheetId }) => {
     const auth = await authorize(credentials)
     const { spreadsheets } = google.sheets({version: 'v4', auth});
 
-    const getRange = async (range) => promisify(spreadsheets.values, 'get')({ spreadsheetId, range })
-    //const insertRows = async (position, nbToInsert) => promisify(spreadsheets)
+    const getOrCreateSheet = async (sheetName) => {
+        // 1. Retrieve existing sheet
+        const spreadsheetMetadata = await spreadsheets.get({ auth, spreadsheetId })
+        const existingSheet = spreadsheetMetadata.data.sheets.find(sheet => sheet.properties.title === sheetName)
+        if (existingSheet) {
+            return existingSheet
+        }
+
+        // 2. Create sheet
+        const newSheetResponse = await spreadsheets.batchUpdate({
+            spreadsheetId, auth,
+            requestBody: {
+                requests: [
+                    {
+                        addSheet: {
+                            properties: {
+                                title: sheetName,
+                            }
+                        }
+                    }
+                ]
+            }
+        })
+        const newSheet = newSheetResponse.data.replies.find(reply => !!reply.addSheet).addSheet
+
+        // 3. Set headers
+        await spreadsheets.values.append({
+            spreadsheetId, auth,
+            range: `${sheetName}!A1:F1`,
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            requestBody: { values: [['Year','Month','Flair','Title','Author','URL']] },
+        })
+        return newSheet
+    }
+
+    const getRange = async (range) => spreadsheets.values.get({ spreadsheetId, range })
+    
+    const insertRows = async (subredditName, values) => {
+        const sheet = await getOrCreateSheet(subredditName)
+        const sheetId = sheet.properties.sheetId
+
+        await spreadsheets.batchUpdate({
+            spreadsheetId, auth,
+            requestBody: {
+                requests: [
+                    {
+                        insertDimension: {
+                            range: {
+                                sheetId,
+                                dimension: 'ROWS',
+                                startIndex: 1,
+                                endIndex: 1 + values.length
+                            },
+                            inheritFromBefore: true,
+                        }
+                    }
+                ]
+            }
+        })
+
+        await spreadsheets.values.append({
+            spreadsheetId, auth,
+            range: `${subredditName}!A2:F${1 + values.length}`,
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            requestBody: { values },
+        })
+    }
 
     return {
-        getRange
+        getRange, insertRows, getOrCreateSheet
     }
 }

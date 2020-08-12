@@ -12,11 +12,7 @@ async function run() {
 
     const googleService = await GoogleService(spreadsheet)
 
-    const result = await googleService.getRange('A1:B2')
-
-    console.log(result.data.values)
-
-    /*for (let i = 0 ; i < subreddits.length ; i++) {
+    for (let i = 0 ; i < subreddits.length ; i++) {
         const { name: subredditName, exclude: excludeTerms } = subreddits[i]
         console.log(`Starting ${subredditName}...`)
 
@@ -32,8 +28,7 @@ async function run() {
                 .valueOf()
         }
 
-        let fileName = `./output/${subredditName}.csv`
-        let fileContent = 'Year,Month,Flair,Title,Author,URL\n' // Headers
+        const rows = []
     
         let end = moment().startOf('month')
         while (end.isAfter(moment(earliest))) {
@@ -47,21 +42,20 @@ async function run() {
                 + `&before=${end.valueOf()/1000}`
                 + `&subreddit=${subredditName}`
                 + `&size=${conf.size}`
-            fileContent += `${start.year()},${months[start.month()]}\n`
+            rows.push([start.year(), months[start.month()]])
             const response = await axios.get(query)
             response.data.data.forEach(redditPost => {
                 const creation = moment(redditPost.created_utc * 1000)
     
                 // Print csv row
-                fileContent += (
-                    `${creation.year()}`
-                    + `,${months[creation.month()]}`
-                    +`,${redditPost.link_flair_text || '-'}`
-                    +`,"${redditPost.title.replace('&amp;', '&').replace('"', '""')}"`
-                    +`,/u/${redditPost.author}`
-                    +`,${redditPost.full_link}`
-                    +'\n'
-                )
+                rows.push([
+                    creation.year(),
+                    months[creation.month()],
+                    redditPost.link_flair_text || '-',
+                    redditPost.title.replace('&amp;', '&').replace('"', '""'),
+                    `/u/${redditPost.author}`,
+                    redditPost.full_link,
+                ])
             })
     
             end = start
@@ -70,8 +64,10 @@ async function run() {
             await sleep(Math.max(100, 1000 - (Date.now() - now)))
         }
     
-        fs.writeFileSync(fileName,fileContent,{encoding:'utf8',flag:'w'})
-    }*/
+        console.log('Saving on Google Sheets...')
+        await googleService.insertRows(subredditName, rows)
+        console.log('Saved on Google Sheets.')
+    }
 }
 
 run().then(() => {}).catch(e => console.error(e))
