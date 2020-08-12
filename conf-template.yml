@@ -1,0 +1,39 @@
+###########################################################################
+#                 CONF-TEMPLATE.YML IS JUST A TEMPLATE
+# Please create a local copy, named conf.yml, which will be ignored by git.
+###########################################################################
+
+# List of subreddits to query.
+# format:
+# - name: mandatory string
+# - exclude: optional list of strings
+subreddits:
+  - name: 'UnearthedArcana'
+    exclude: 
+      - 'Arcana Forge'
+  - name: 'DnDBehindTheScreen'
+    exclude: 
+      - 'Weekly Discussion'
+  - name: 'DnDHomebrew'
+  - name: 'DMAcademy'
+  - name: 'BattleMaps'
+  - name: 'DnDMaps'
+
+conf:
+  start: "SUBREDDIT_CREATION" # possible values: "SUBREDDIT_CREATION", "LAST_MONTH"
+  size: 10 # How many posts to query for each month
+
+# Create a Cloud Platform project following the instructions here: https://developers.google.com/sheets/api/quickstart/nodejs
+spreadsheet:
+  spreadsheetId: "abcd1234" # replace this in conf.yml
+  credentials:
+    installed:
+      client_id: "abcd1234" # replace this in conf.yml
+      project_id: "abcd1234" # replace this in conf.yml
+      auth_uri: "https://accounts.google.com/o/oauth2/auth"
+      token_uri: "https://oauth2.googleapis.com/token"
+      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs"
+      client_secret: "abcd1234" # replace this in conf.yml
+      redirect_uris:
+        - "urn:ietf:wg:oauth:2.0:oob"
+        - "http://localhost"

@@ -10,6 +10,8 @@
   "license": "UNLICENSED",
   "dependencies": {
     "axios": "^0.19.2",
+    "googleapis": "^39.2.0",
+    "js-yaml": "^3.14.0",
     "moment": "^2.27.0"
   }
 }

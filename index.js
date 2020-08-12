@@ -1,44 +1,52 @@
 const axios = require('axios').default
 const moment = require('moment')
 const fs = require('fs')
-const { months, days, sleep } = require('./src/util').default
-
-const subreddits = [
-    { name: 'UnearthedArcana', exclude: ['Arcana Forge'] },
-    { name: 'DnDBehindTheScreen', exclude: ["Weekly Discussion"] },
-    { name: 'DnDHomebrew', exclude: [] },
-    { name: 'DMAcademy', exclude: [] },
-    { name: 'BattleMaps', exclude: [] },
-    { name: 'DnDMaps', exclude: [] },
-]
+const yaml = require('js-yaml')
+const GoogleService = require('./src/google').default
+const { months, sleep } = require('./src/util').default
 
 async function run() {
-    const creationStats = { day: {}, hour: {} }
-    for (const day of days) creationStats.day[day] = 0 // make sure the days appear in chronological order rather than in whichever order the reddit posts are found
-    delete creationStats.day.none
+    // If you have a no such file error here, make a local copy of conf-template.yml, named conf.yml
+    const confFile = fs.readFileSync('./conf.yml')
+    const { subreddits, conf, spreadsheet } = yaml.load(confFile)
 
-    for (let i = 0 ; i < subreddits.length ; i++) {
+    const googleService = await GoogleService(spreadsheet)
+
+    const result = await googleService.getRange('A1:B2')
+
+    console.log(result.data.values)
+
+    /*for (let i = 0 ; i < subreddits.length ; i++) {
         const { name: subredditName, exclude: excludeTerms } = subreddits[i]
         console.log(`Starting ${subredditName}...`)
 
-        const subredditMetadata = await axios.get(`http://www.reddit.com/r/${subredditName}/about.json`)
-        const subredditCreationTimestamp = subredditMetadata.data.data.created_utc * 1000
+        // Determine where the loop should end, based on the conf
+        let earliest
+        if (conf.start === 'SUBREDDIT_CREATION') {
+            const subredditMetadata = await axios.get(`http://www.reddit.com/r/${subredditName}/about.json`)
+            earliest = subredditMetadata.data.data.created_utc * 1000
+        } else if (conf.start === 'LAST_MONTH') {
+            earliest = moment()
+                .startOf('month')
+                .subtract(1, 'month')
+                .valueOf()
+        }
 
         let fileName = `./output/${subredditName}.csv`
         let fileContent = 'Year,Month,Flair,Title,Author,URL\n' // Headers
     
         let end = moment().startOf('month')
-        while (end.isAfter(moment(subredditCreationTimestamp))) {
+        while (end.isAfter(moment(earliest))) {
             const now = Date.now()
             const start = moment(end).subtract(1, 'month')            
             console.log(`${subredditName} - ${months[start.month()]} ${start.year()}`)
 
             const query = 'https://api.pushshift.io/reddit/search/submission/?metadata=true&frequency=hour&advanced=false&sort=desc&domain=&sort_type=num_comments'
-                + (excludeTerms.length ? `&q=${excludeTerms.map(term => `-"${term}`).join(' ')}"` : '')
+                + ((excludeTerms && excludeTerms.length) ? `&q=${excludeTerms.map(term => `-"${term}`).join(' ')}"` : '')
                 + `&after=${start.valueOf()/1000}`
                 + `&before=${end.valueOf()/1000}`
                 + `&subreddit=${subredditName}`
-                + '&size=10'
+                + `&size=${conf.size}`
             fileContent += `${start.year()},${months[start.month()]}\n`
             const response = await axios.get(query)
             response.data.data.forEach(redditPost => {
@@ -54,10 +62,6 @@ async function run() {
                     +`,${redditPost.full_link}`
                     +'\n'
                 )
-    
-                // Gather stats
-                creationStats.day[days[creation.isoWeekday()]] = (creationStats.day[days[creation.isoWeekday()]] || 0) + 1
-                creationStats.hour[`${creation.hour()}`] = (creationStats.hour[`${creation.hour()}`] || 0) + 1
             })
     
             end = start
@@ -67,9 +71,7 @@ async function run() {
         }
     
         fs.writeFileSync(fileName,fileContent,{encoding:'utf8',flag:'w'})
-    }
-
-    console.log(creationStats)
+    }*/
 }
 
 run().then(() => {}).catch(e => console.error(e))
