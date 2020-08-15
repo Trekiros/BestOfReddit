@@ -1,17 +1,17 @@
-const axios = require('axios').default
 const moment = require('moment')
 const fs = require('fs')
 const yaml = require('js-yaml')
 const GoogleService = require('./src/google').default
-const { months, sleep } = require('./src/util').default
+const { months, sleep, httpGet } = require('./src/util').default
 
 async function run() {
     // If you have a no such file error here, make a local copy of conf-template.yml, named conf.yml
-    const confFile = process.env['conf'] ? process.env['conf'] : fs.readFileSync('./conf.yml')
+    const confFile = process.env['conf'] || fs.readFileSync('./conf.yml')
     const { subreddits, conf, spreadsheet } = yaml.load(confFile)
 
     const googleService = await GoogleService(spreadsheet)
 
+    // fori instead of foreach in order to stay in the async scope
     for (let i = 0 ; i < subreddits.length ; i++) {
         const { name: subredditName, exclude: excludeTerms } = subreddits[i]
         console.log(`Starting ${subredditName}...`)
@@ -30,15 +30,14 @@ async function run() {
         
         // Sheet did not exist: start from the subreddit's creation
         else {
-            const subredditMetadata = await axios.get(`http://www.reddit.com/r/${subredditName}/about.json`)
-            earliest = subredditMetadata.data.data.created_utc * 1000
+            const subredditMetadata = await get(`http://www.reddit.com/r/${subredditName}/about.json`)
+            earliest = subredditMetadata.created_utc * 1000
         }
         
         const rows = []
     
         let end = moment().startOf('month')
         while (end.isAfter(moment(earliest))) {
-            const now = Date.now()
             const start = moment(end).subtract(1, 'month')            
             console.log(`${subredditName} - ${months[start.month()]} ${start.year()}`)
 
@@ -49,14 +48,13 @@ async function run() {
                 + `&subreddit=${subredditName}`
                 + `&size=${conf.size}`
             rows.push([start.year(), months[start.month()]])
-            const response = await axios.get(query)
-            response.data.data.forEach(redditPost => {
-                const creation = moment(redditPost.created_utc * 1000)
-    
-                // Print csv row
+            const response = await httpGet(query)
+            
+            // Print csv rows
+            response.forEach(redditPost => {    
                 rows.push([
-                    creation.year(),
-                    months[creation.month()],
+                    start.year(),
+                    months[start.month()],
                     redditPost.link_flair_text || '-',
                     redditPost.title.replace('&amp;', '&').replace('"', '""'),
                     `/u/${redditPost.author}`,
@@ -67,7 +65,7 @@ async function run() {
             end = start
     
             // Avoid the "too many requests" error by throttling requests by at least one second
-            await sleep(Math.max(100, 1000 - (Date.now() - now)))
+            await sleep(1000)
         }
     
         if (rows.length) {
@@ -80,4 +78,8 @@ async function run() {
     }
 }
 
-run().then(() => {}).catch(e => console.error(e))
+run()
+    .then(() => {
+        console.log('Job execution complete.')
+    })
+    .catch(console.error)

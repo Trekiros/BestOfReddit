@@ -1,14 +1,6 @@
 const readline = require('readline')
 const { google } = require('googleapis')
 const fs = require('fs')
-const util = require('util')
-
-/**
- * @type {<T, U> (thisArg: {[key: T]: (U, (err, res) => void) => void}, methodName: T) => (U) => Promise(void)}
- */
-function promisify(thisArg, methodName) {
-    return util.promisify(thisArg[methodName].bind(thisArg))
-}
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const TOKEN_PATH = './token.json'
@@ -103,6 +95,7 @@ exports.default = async ({ credentials, spreadsheetId }) => {
             insertDataOption: 'INSERT_ROWS',
             requestBody: { values: [['Year','Month','Flair','Title','Author','URL']] },
         })
+
         return newSheet
     }
 
@@ -116,6 +109,7 @@ exports.default = async ({ credentials, spreadsheetId }) => {
         const sheet = await getOrCreateSheet(subredditName)
         const sheetId = sheet.properties.sheetId
 
+        // Create n new empty rows
         await spreadsheets.batchUpdate({
             spreadsheetId, auth,
             requestBody: {
@@ -135,6 +129,7 @@ exports.default = async ({ credentials, spreadsheetId }) => {
             }
         })
 
+        // Fill the new rows with data
         await spreadsheets.values.append({
             spreadsheetId, auth,
             range: `${subredditName}!A2:F${1 + values.length}`,
