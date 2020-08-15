@@ -30,7 +30,7 @@ async function run() {
         
         // Sheet did not exist: start from the subreddit's creation
         else {
-            const subredditMetadata = await get(`http://www.reddit.com/r/${subredditName}/about.json`)
+            const subredditMetadata = await httpGet(`http://www.reddit.com/r/${subredditName}/about.json`)
             earliest = subredditMetadata.created_utc * 1000
         }
         
