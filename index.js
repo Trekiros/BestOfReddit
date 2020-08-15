@@ -7,8 +7,8 @@ const { months, sleep } = require('./src/util').default
 
 async function run() {
     // If you have a no such file error here, make a local copy of conf-template.yml, named conf.yml
-    const confFile = process.env['conf'] ? JSON.parse(process.env['conf']) : yaml.load(fs.readFileSync('./conf.yml'))
-    const { subreddits, conf, spreadsheet } = confFile
+    const confFile = process.env['conf'] ? process.env['conf'] : fs.readFileSync('./conf.yml')
+    const { subreddits, conf, spreadsheet } = yaml.load(confFile)
 
     const googleService = await GoogleService(spreadsheet)
 
