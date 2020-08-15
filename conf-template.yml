@@ -20,7 +20,6 @@ subreddits:
   - name: 'DnDMaps'
 
 conf:
-  start: "SUBREDDIT_CREATION" # possible values: "SUBREDDIT_CREATION", "LAST_MONTH"
   size: 10 # How many posts to query for each month
 
 # Create a Cloud Platform project following the instructions here: https://developers.google.com/sheets/api/quickstart/nodejs

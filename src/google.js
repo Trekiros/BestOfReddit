@@ -106,7 +106,11 @@ exports.default = async ({ credentials, spreadsheetId }) => {
         return newSheet
     }
 
-    const getRange = async (range) => spreadsheets.values.get({ spreadsheetId, range })
+    const getRange = async (subredditName, range) => {
+        await getOrCreateSheet(subredditName)
+        const response = await spreadsheets.values.get({ spreadsheetId, range: `${subredditName}!${range}` })
+        return response.data.values
+    }
     
     const insertRows = async (subredditName, values) => {
         const sheet = await getOrCreateSheet(subredditName)
@@ -135,7 +139,7 @@ exports.default = async ({ credentials, spreadsheetId }) => {
             spreadsheetId, auth,
             range: `${subredditName}!A2:F${1 + values.length}`,
             valueInputOption: 'RAW',
-            insertDataOption: 'INSERT_ROWS',
+            insertDataOption: 'OVERWRITE',
             requestBody: { values },
         })
     }

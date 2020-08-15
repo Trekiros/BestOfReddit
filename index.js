@@ -16,18 +16,24 @@ async function run() {
         const { name: subredditName, exclude: excludeTerms } = subreddits[i]
         console.log(`Starting ${subredditName}...`)
 
-        // Determine where the loop should end, based on the conf
+        // Sheet already exists: start from the first unknown month
         let earliest
-        if (conf.start === 'SUBREDDIT_CREATION') {
+        const latestKnownRow = await googleService.getRange(subredditName, 'A2:B2')
+        if (latestKnownRow && latestKnownRow[0][0] && latestKnownRow[0][1]) {
+            const latestKnownTimestamp = moment().startOf('month')
+                .year(latestKnownRow[0][0])
+                .month(months.indexOf(latestKnownRow[0][1]))
+                .add(1, 'month')
+
+            earliest = latestKnownTimestamp.valueOf()
+        }
+        
+        // Sheet did not exist: start from the subreddit's creation
+        else {
             const subredditMetadata = await axios.get(`http://www.reddit.com/r/${subredditName}/about.json`)
             earliest = subredditMetadata.data.data.created_utc * 1000
-        } else if (conf.start === 'LAST_MONTH') {
-            earliest = moment()
-                .startOf('month')
-                .subtract(1, 'month')
-                .valueOf()
         }
-
+        
         const rows = []
     
         let end = moment().startOf('month')
@@ -64,9 +70,13 @@ async function run() {
             await sleep(Math.max(100, 1000 - (Date.now() - now)))
         }
     
-        console.log('Saving on Google Sheets...')
-        await googleService.insertRows(subredditName, rows)
-        console.log('Saved on Google Sheets.')
+        if (rows.length) {
+            console.log('Saving on Google Sheets...')
+            await googleService.insertRows(subredditName, rows)
+            console.log('Saved on Google Sheets.')
+        } else {
+            console.log(`${subredditName}: nothing to save`)
+        }
     }
 }
 
