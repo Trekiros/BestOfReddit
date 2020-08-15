@@ -27,7 +27,7 @@ async function authorize(credentials) {
 
     // Check if we have previously stored a token.
     try {
-        const token = fs.readFileSync(TOKEN_PATH)
+        const token = process.env['googleToken'] ? process.env['googleToken'] : fs.readFileSync(TOKEN_PATH)
         oAuth2Client.setCredentials(JSON.parse(token))
         return oAuth2Client
     } catch (err) {
