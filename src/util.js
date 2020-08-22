@@ -19,7 +19,7 @@ exports.default = {
         return new Promise(resolve => setTimeout(resolve, ms));
     },
     httpGet: async (uri) => {
-        const response = await axios.get(url)
+        const response = await axios.get(uri)
         if (response) return response.data.data
         return undefined
     }

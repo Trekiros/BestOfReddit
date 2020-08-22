@@ -6,18 +6,19 @@
 # List of subreddits to query.
 # format:
 # - name: mandatory string
+# - description: mandatory string
 # - exclude: optional list of strings
 subreddits:
   - name: 'UnearthedArcana'
+    description: "Welcome to the Monthly Top 10! This document lists the top 10 most-upvoted posts to r/UnearthedArcana for each month since the subreddit's creation.\nKeep in mind that this list isn't curated, so anything with the most upvotes appears here. Take a dive into some popular homebrew from the past!"
     exclude: 
       - 'Arcana Forge'
   - name: 'DnDBehindTheScreen'
+    description: "Welcome to the Monthly Top 10!"
     exclude: 
       - 'Weekly Discussion'
   - name: 'DnDHomebrew'
-  - name: 'DMAcademy'
-  - name: 'BattleMaps'
-  - name: 'DnDMaps'
+    description: "Same but with r/DnDHomebrew"
 
 conf:
   size: 10 # How many posts to query for each month

@@ -1,6 +1,8 @@
+const moment = require('moment')
 const readline = require('readline')
 const { google } = require('googleapis')
 const fs = require('fs')
+const { httpGet } = require('./util').default
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const TOKEN_PATH = './token.json'
@@ -58,19 +60,28 @@ async function getNewToken(oAuth2Client) {
     })
 }
 
-exports.default = async ({ credentials, spreadsheetId }) => {
+exports.default = async ({ credentials, spreadsheetId }, subreddits) => {
+    const descriptionBySheetName = {}
+    subreddits.forEach(subreddit => descriptionBySheetName[subreddit.name] = subreddit.description)
+
     const auth = await authorize(credentials)
     const { spreadsheets } = google.sheets({version: 'v4', auth});
 
+    const sheetMap = {}
     const getOrCreateSheet = async (sheetName) => {
-        // 1. Retrieve existing sheet
+        // 1. If the sheet is already known, retrieve it from memory
+        if (sheetMap[sheetName]) {
+            return sheetMap[sheetName]
+        }
+
+        // 2. Retrieve existing sheet
         const spreadsheetMetadata = await spreadsheets.get({ auth, spreadsheetId })
         const existingSheet = spreadsheetMetadata.data.sheets.find(sheet => sheet.properties.title === sheetName)
         if (existingSheet) {
             return existingSheet
         }
 
-        // 2. Create sheet
+        // 3. Create sheet
         const newSheetResponse = await spreadsheets.batchUpdate({
             spreadsheetId, auth,
             requestBody: {
@@ -87,15 +98,142 @@ exports.default = async ({ credentials, spreadsheetId }) => {
         })
         const newSheet = newSheetResponse.data.replies.find(reply => !!reply.addSheet).addSheet
 
-        // 3. Set headers
+        // 4. Set headers
         await spreadsheets.values.append({
             spreadsheetId, auth,
-            range: `${sheetName}!A1:F1`,
+            range: `${sheetName}!A1:F4`,
             valueInputOption: 'RAW',
             insertDataOption: 'INSERT_ROWS',
-            requestBody: { values: [['Year','Month','Flair','Title','Author','URL']] },
+            requestBody: { values: [
+                [`\t\t\tr/${sheetName} Monthly Top 10`],
+                [`"${descriptionBySheetName[sheetName]}"`],
+                [],
+                ['Year','Month','Type','Title','Creator','URL'],
+            ] },
         })
 
+        // 5. Apply style
+        const sheetId = newSheet.properties.sheetId
+        const borderStyle = {
+            style: 'SOLID',
+            width: 1,
+            color: { red: 0.0, green: 0.0, blue: 0.0 },
+        }
+        await spreadsheets.batchUpdate({
+            spreadsheetId, auth,
+            requestBody: {
+                requests: [
+                    // Title in A1
+                    {
+                        mergeCells: {
+                            range: {
+                                sheetId,
+                                startRowIndex: 0,
+                                endRowIndex: 1,
+                                startColumnIndex: 0,
+                                endColumnIndex: 4,
+                            },
+                            mergeType: 'MERGE_ALL',
+                        }
+                    },
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId,
+                                startRowIndex: 0,
+                                endRowIndex: 1,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    textFormat: {
+                                        fontSize: 14,
+                                        bold: true,
+                                    },
+                                },
+                            },
+                            fields: "userEnteredFormat(textFormat)",
+                        }
+                    },
+
+                    // Description in 2:3
+                    {
+                        mergeCells: {
+                            range: {
+                                sheetId,
+                                startRowIndex: 1,
+                                endRowIndex: 3,
+                            },
+                            mergeType: 'MERGE_ALL',
+                        }
+                    },
+
+                    // Headers in A4:F4
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId,
+                                startRowIndex: 3,
+                                endRowIndex: 4,
+                                startColumnIndex: 0,
+                                endColumnIndex: 6,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 0.953, green: 0.953, blue: 0.953 },
+                                    textFormat: { fontSize: 12, bold: true },
+                                },
+                            },
+                            fields: "userEnteredFormat(backgroundColor, textFormat)",
+                        }
+                    },
+                    {
+                        updateBorders: {
+                            range: {
+                                sheetId,
+                                startRowIndex: 3,
+                                endRowIndex: 4,
+                                startColumnIndex: 0,
+                                endColumnIndex: 6,
+                            },
+                            top: borderStyle,
+                            bottom: borderStyle,
+                            left: borderStyle,
+                            right: borderStyle,
+                        },
+                    },
+
+                    // Set column widths
+                    ...[84, 84, 84, 588, 252, 252].map((pixelSize, index) => ({
+                        updateDimensionProperties: {
+                            range: {
+                                sheetId,
+                                dimension: 'COLUMNS',
+                                startIndex: index,
+                                endIndex: index + 1,
+                            },
+                            properties: { pixelSize },
+                            fields: "pixelSize",
+                        },
+                    })),
+
+                    // Set frozen rows
+                    {
+                        updateSheetProperties: {
+                            properties: {
+                                sheetId,
+                                gridProperties: {
+                                    frozenRowCount: 4,
+                                    hideGridlines: true,
+                                },
+                            },
+                            fields: "gridProperties.frozenRowCount",
+                        }
+                    }
+                ]
+            },
+        })
+
+        sheetMap[sheetName] = newSheet
         return newSheet
     }
 
@@ -104,8 +242,33 @@ exports.default = async ({ credentials, spreadsheetId }) => {
         const response = await spreadsheets.values.get({ spreadsheetId, range: `${subredditName}!${range}` })
         return response.data.values
     }
+
+    const getEarliest = async (subredditName) => {
+        const latestKnownRow = await getRange(subredditName, 'A5:B5')
+
+        // Sheet already exists: start from the first unknown month
+        if (latestKnownRow && latestKnownRow[0][0] && latestKnownRow[0][1]) {
+            const latestKnownTimestamp = moment().startOf('month')
+                .year(latestKnownRow[0][0])
+                .month(months.indexOf(latestKnownRow[0][1]))
+                .add(1, 'month')
+
+            return latestKnownTimestamp.valueOf()
+        }
+        
+        // Sheet did not exist: start from the subreddit's creation
+        else {
+            const subredditMetadata = await httpGet(`http://www.reddit.com/r/${subredditName}/about.json`)
+            return subredditMetadata.created_utc * 1000
+        }
+    }
     
-    const insertRows = async (subredditName, values) => {
+    /**
+     * Inserts and styles a topN into a sheet
+     * @param {string} subredditName
+     * @param {{ month: string, year: number, top: { flair: string, title: string, author: string, url: string }[] }} values 
+     */
+    const insertTop = async (subredditName, values) => {
         const sheet = await getOrCreateSheet(subredditName)
         const sheetId = sheet.properties.sheetId
 
@@ -119,8 +282,10 @@ exports.default = async ({ credentials, spreadsheetId }) => {
                             range: {
                                 sheetId,
                                 dimension: 'ROWS',
-                                startIndex: 1,
-                                endIndex: 1 + values.length
+                                startIndex: 5,
+
+                                // 7 = 5 (start index) + 1 (part header) + 1 (empty line between each month)
+                                endIndex: 3 + values.top.length
                             },
                             inheritFromBefore: true,
                         }
@@ -132,14 +297,39 @@ exports.default = async ({ credentials, spreadsheetId }) => {
         // Fill the new rows with data
         await spreadsheets.values.append({
             spreadsheetId, auth,
-            range: `${subredditName}!A2:F${1 + values.length}`,
+            range: `${subredditName}!A5:F${6 + values.top.length}`, // 6 = 5 (starting point) + 1 (part header)
             valueInputOption: 'RAW',
             insertDataOption: 'OVERWRITE',
-            requestBody: { values },
+            requestBody: {
+                values: [
+                    // Part Header
+                    [values.year, values.month],
+
+                    // values.top, as spreadsheet rows
+                    ...values.top.map(top => [
+                        values.year,
+                        values.month,
+                        top.flair,
+                        top.title,
+                        top.author,
+                        top.url,
+                    ])
+                ],
+            },
         })
+
+        // Apply style
+        // TODO
     }
 
+
+
+    // Create all of the sheets that need to be created when the job is started
+    await Promise.all(
+        subreddits.map(async (subreddit) => getOrCreateSheet(subreddit.name))
+    )
+
     return {
-        getRange, insertRows, getOrCreateSheet
+        getEarliest, insertTop, getOrCreateSheet
     }
 }

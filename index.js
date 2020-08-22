@@ -9,37 +9,24 @@ async function run() {
     const confFile = process.env['conf'] || fs.readFileSync('./conf.yml')
     const { subreddits, conf, spreadsheet } = yaml.load(confFile)
 
-    const googleService = await GoogleService(spreadsheet)
+    const googleService = await GoogleService(spreadsheet, subreddits)
 
     // fori instead of foreach in order to stay in the async scope
     for (let i = 0 ; i < subreddits.length ; i++) {
         const { name: subredditName, exclude: excludeTerms } = subreddits[i]
         console.log(`Starting ${subredditName}...`)
 
-        // Sheet already exists: start from the first unknown month
-        let earliest
-        const latestKnownRow = await googleService.getRange(subredditName, 'A2:B2')
-        if (latestKnownRow && latestKnownRow[0][0] && latestKnownRow[0][1]) {
-            const latestKnownTimestamp = moment().startOf('month')
-                .year(latestKnownRow[0][0])
-                .month(months.indexOf(latestKnownRow[0][1]))
-                .add(1, 'month')
+        // Calculate timeslot of the job
+        const earliest = await googleService.getEarliest(subredditName)
+        const latest = moment().subtract(5, 'days').startOf('month') // If ran daily, the sheet is updated on the 5th of each month
 
-            earliest = latestKnownTimestamp.valueOf()
-        }
-        
-        // Sheet did not exist: start from the subreddit's creation
-        else {
-            const subredditMetadata = await httpGet(`http://www.reddit.com/r/${subredditName}/about.json`)
-            earliest = subredditMetadata.created_utc * 1000
-        }
-        
-        const rows = []
-    
-        let end = moment().startOf('month')
-        while (end.isAfter(moment(earliest))) {
-            const start = moment(end).subtract(1, 'month')            
+        let start = moment(earliest)
+        while (start.isBefore(latest)) {
+            const end = moment(start).add(1, 'month')            
             console.log(`${subredditName} - ${months[start.month()]} ${start.year()}`)
+            
+            const rows = []
+            rows.push([start.year(), months[start.month()]])
 
             const query = 'https://api.pushshift.io/reddit/search/submission/?metadata=true&frequency=hour&advanced=false&sort=desc&domain=&sort_type=num_comments'
                 + ((excludeTerms && excludeTerms.length) ? `&q=${excludeTerms.map(term => `-"${term}`).join(' ')}"` : '')
@@ -47,33 +34,22 @@ async function run() {
                 + `&before=${end.valueOf()/1000}`
                 + `&subreddit=${subredditName}`
                 + `&size=${conf.size}`
-            rows.push([start.year(), months[start.month()]])
             const response = await httpGet(query)
-            
-            // Print csv rows
-            response.forEach(redditPost => {    
-                rows.push([
-                    start.year(),
-                    months[start.month()],
-                    redditPost.link_flair_text || '-',
-                    redditPost.title.replace('&amp;', '&').replace('"', '""'),
-                    `/u/${redditPost.author}`,
-                    redditPost.full_link,
-                ])
+    
+            await googleService.insertTop(subredditName, {
+                month: months[start.month()],
+                year: start.year(),
+                top: response.map(redditPost => ({
+                    flair: redditPost.link_flair_text || '-',
+                    title: redditPost.title.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('"', '""'),
+                    author: redditPost.author,
+                    url: `http://www.reddit.com/${redditPost.id}`,
+                }))
             })
-    
-            end = start
-    
+            
             // Avoid the "too many requests" error by throttling requests by at least one second
             await sleep(1000)
-        }
-    
-        if (rows.length) {
-            console.log('Saving on Google Sheets...')
-            await googleService.insertRows(subredditName, rows)
-            console.log('Saved on Google Sheets.')
-        } else {
-            console.log(`${subredditName}: nothing to save`)
+            start = end
         }
     }
 }
