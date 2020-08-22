@@ -2,7 +2,7 @@ const moment = require('moment')
 const readline = require('readline')
 const { google } = require('googleapis')
 const fs = require('fs')
-const { httpGet } = require('./util').default
+const { httpGet, months } = require('./util').default
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const TOKEN_PATH = './token.json'
@@ -151,7 +151,7 @@ exports.default = async ({ credentials, spreadsheetId }, subreddits) => {
                                     },
                                 },
                             },
-                            fields: "userEnteredFormat(textFormat)",
+                            fields: 'userEnteredFormat(textFormat)',
                         }
                     },
 
@@ -183,7 +183,7 @@ exports.default = async ({ credentials, spreadsheetId }, subreddits) => {
                                     textFormat: { fontSize: 12, bold: true },
                                 },
                             },
-                            fields: "userEnteredFormat(backgroundColor, textFormat)",
+                            fields: 'userEnteredFormat(backgroundColor, textFormat)',
                         }
                     },
                     {
@@ -212,9 +212,26 @@ exports.default = async ({ credentials, spreadsheetId }, subreddits) => {
                                 endIndex: index + 1,
                             },
                             properties: { pixelSize },
-                            fields: "pixelSize",
+                            fields: 'pixelSize',
                         },
                     })),
+
+                    // Set column D's text wrap
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId,
+                                startColumnIndex: 3,
+                                endColumnIndex: 5,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    wrapStrategy: 'WRAP',
+                                },
+                            },
+                            fields: 'userEnteredFormat(wrapStrategy)',
+                        }
+                    },
 
                     // Set frozen rows
                     {
@@ -226,7 +243,7 @@ exports.default = async ({ credentials, spreadsheetId }, subreddits) => {
                                     hideGridlines: true,
                                 },
                             },
-                            fields: "gridProperties.frozenRowCount",
+                            fields: 'gridProperties.frozenRowCount',
                         }
                     }
                 ]
@@ -272,54 +289,111 @@ exports.default = async ({ credentials, spreadsheetId }, subreddits) => {
         const sheet = await getOrCreateSheet(subredditName)
         const sheetId = sheet.properties.sheetId
 
-        // Create n new empty rows
+        // Create empty rows
+        const startIndex = 4
+        const endIndex = startIndex + values.top.length + 1 /* part header */ + 1 /* empty line between each month */
         await spreadsheets.batchUpdate({
             spreadsheetId, auth,
             requestBody: {
                 requests: [
+                    // Create the rows (this copies the formatting from the first row onto each of the new rows individually)
                     {
                         insertDimension: {
                             range: {
                                 sheetId,
                                 dimension: 'ROWS',
-                                startIndex: 5,
-
-                                // 7 = 5 (start index) + 1 (part header) + 1 (empty line between each month)
-                                endIndex: 3 + values.top.length
+                                startIndex,
+                                endIndex,
                             },
                             inheritFromBefore: true,
                         }
-                    }
-                ]
-            }
-        })
+                    },
 
-        // Fill the new rows with data
-        await spreadsheets.values.append({
-            spreadsheetId, auth,
-            range: `${subredditName}!A5:F${6 + values.top.length}`, // 6 = 5 (starting point) + 1 (part header)
-            valueInputOption: 'RAW',
-            insertDataOption: 'OVERWRITE',
-            requestBody: {
-                values: [
-                    // Part Header
-                    [values.year, values.month],
+                    // Insert values
+                    {
+                        updateCells: {
+                            range: {
+                                sheetId,
+                                startRowIndex: startIndex,
+                                endRowIndex: endIndex,
+                            },
+                            rows: [
+                                // Part Header
+                                { values: [{
+                                    userEnteredValue: { numberValue: values.year },
+                                }, {
+                                    userEnteredValue: { stringValue: values.month },
+                                }] },
+            
+                                // values.top, as spreadsheet rows
+                                ...values.top.map(top => ({ values: [
+                                    { userEnteredValue: { numberValue: values.year } },
+                                    { userEnteredValue: { stringValue: values.month } },
+                                    { userEnteredValue: { stringValue: top.flair } },
+                                    { userEnteredValue: { stringValue: top.title } },
+                                    { userEnteredValue: { stringValue: top.author } },
+                                    { userEnteredValue: { stringValue: top.url } },
+                                ]})),
+                            ],
+                            // userEnteredFormat is not specified, to it is cleared for this range
+                            fields: 'userEnteredValue,userEnteredFormat',
+                        }
+                    },
 
-                    // values.top, as spreadsheet rows
-                    ...values.top.map(top => [
-                        values.year,
-                        values.month,
-                        top.flair,
-                        top.title,
-                        top.author,
-                        top.url,
-                    ])
+                    // Apply style
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId,
+                                startRowIndex: startIndex,
+                                endRowIndex: startIndex + 1,
+                                startColumnIndex: 0,
+                                endColumnIndex: 2,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    textFormat: { bold: true },
+                                },
+                            },
+                            fields: 'userEnteredFormat(textFormat)',
+                        }
+                    },
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId,
+                                startRowIndex: startIndex +1,
+                                endRowIndex: endIndex,
+                                startColumnIndex: 0,
+                                endColumnIndex: 2,
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    textFormat: { foregroundColor: { red: 0.8, blue: 0.8, green: 0.8 } },
+                                },
+                            },
+                            fields: 'userEnteredFormat(textFormat)',
+                        }
+                    },
+                    {
+                        updateBorders: {
+                            range: {
+                                sheetId,
+                                startRowIndex: startIndex,
+                                endRowIndex: endIndex -1,
+                                startColumnIndex: 0,
+                                endColumnIndex: 6,
+                            },
+                            top: { style: 'SOLID', width: 1, color: { red: 0.0, green: 0.0, blue: 0.0 } },
+                            bottom: { style: 'SOLID', width: 1, color: { red: 0.0, green: 0.0, blue: 0.0 } },
+                            left: { style: 'SOLID', width: 1, color: { red: 0.0, green: 0.0, blue: 0.0 } },
+                            right: { style: 'SOLID', width: 1, color: { red: 0.0, green: 0.0, blue: 0.0 } },
+                            innerVertical: { style: 'SOLID', width: 1, color: { red: 0.72, green: 0.72, blue: 0.72 } },
+                        },
+                    },
                 ],
             },
         })
-
-        // Apply style
-        // TODO
     }
 
 
