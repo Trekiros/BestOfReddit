@@ -8,6 +8,7 @@
 # - name: mandatory string
 # - description: mandatory string
 # - exclude: optional list of strings
+# Below is an example which queries three subreddits. Each subreddit will be printed in a different tab of the spreadsheet.
 subreddits:
   - name: 'UnearthedArcana'
     description: "Welcome to the Monthly Top 10! This document lists the top 10 most-upvoted posts to r/UnearthedArcana for each month since the subreddit's creation.\nKeep in mind that this list isn't curated, so anything with the most upvotes appears here. Take a dive into some popular homebrew from the past!"
@@ -22,6 +23,13 @@ subreddits:
 
 conf:
   size: 10 # How many posts to query for each month
+
+# Create a reddit script app here: https://www.reddit.com/prefs/apps
+reddit:
+  username: 'abcd1234' # replace this in conf.yml
+  password: 'abcd1234' # replace this in conf.yml
+  appId: 'abcd1234' # replace this in conf.yml
+  appSecret: 'abcd1234' # replace this in conf.yml
 
 # Create a Cloud Platform project following the instructions here: https://developers.google.com/sheets/api/quickstart/nodejs
 spreadsheet:

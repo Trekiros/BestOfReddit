@@ -46,7 +46,7 @@ async function getNewToken(oAuth2Client) {
             rl.close()
             oAuth2Client.getToken(code, (err, token) => {
                 if (err) {
-                    reject(err)
+                    return reject(err)
                 }
 
                 oAuth2Client.setCredentials(token)
