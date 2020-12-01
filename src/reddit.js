@@ -46,7 +46,9 @@ exports.default = async (credentials) => {
 
                     // Rate limit: 60 requests per minute, or 1 request per second
                     // Plus 50ms just in case, to ensure the limit is never hit
-                    await sleep(Math.min(1000, start-end+1000) + 50) 
+                    if (end - start < 1050) {
+                        await sleep(end-start + 50) 
+                    }
 
                     
                     if (latest < redditPost.created_utc) {
