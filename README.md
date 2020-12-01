@@ -7,11 +7,14 @@ A scrapper which generates a google sheet with the top 10 posts of each month fo
 * In your local repository, install code dependencies: `npm i`
 * Create a copy of `conf-template.yml`, named `conf.yml`, modifying `conf.yml` for your specific use case.
 * Create a Google Sheet, and note its id (from its URI) in `conf.yml`, under the `spreadsheetId` field
-* Enable Google Sheets API for your Google API, and download a `credentials.json` file following the instructions found [here](https://developers.google.com/sheets/api/quickstart/nodejs)
-* Write down the `client_id`, `project_id` and `client_secret` fields in `conf.yml`, using the values found in `credentials.json`. **Never share or commit these credentials.**
+* Enable Google Sheets API for your Google API, and download a `credentials.json` file following the instructions found [here](https://developers.google.com/sheets/api/quickstart/nodejs). Make sure you use the same Google Account which was used for the creation of the spreadsheet.
+* Write down the `client_id`, `project_id` and `client_secret` fields in `conf.yml`, using the values found in `credentials.json`. **Never share or commit these credentials.** They could be used to access and modify all of your Google Spreadsheets.
+* Create a Reddit script app [here](https://www.reddit.com/prefs/apps).
+* Use this new Reddit app to complete the `appId` and `appSecret` fields of the reddit category in `conf.yml`. **Never share or commer these credentials.** They could be used to access your reddit account.
+* Complete the `username` and `password` fields in the reddit category of `conf.yml`, using the credentials of the reddit account which has created the reddit app. If you do not wish to use your personal reddit account for this, the project can just as easily be ran using a new reddit account.
 * Run the project for the first time: `npm start` or `node .`
-* On the first run, the project will ask you to follow a link to grant it authority over your Google Sheets file.
-* It will then create a file named `token.json` which lets it bypass the last step on subsequent runs. **Never share or commit this file.**
+* On the first run, the project will ask you to follow a link to grant it authority over your Google Sheets file. Make sure you use the same Google Account which was used for the creation of the spreadsheet.
+* It will then create a file named `token.json` which lets it bypass the last step on subsequent runs. **Never share or commit this file.** It could be used to access and modify all of your Google Spreadsheets.
 
 ### Contributing
 To contribute, fork this project, and make a pull request with your changes. 
@@ -25,7 +28,7 @@ This project could be deployed on any number of platforms. Heroku was chosen as 
 * Create a new app
 * Create a production pipeline for your app
 * In the `Resources` tab, add the `Heroku Scheduler` and `Logentries` add-ons to your pipeline
-* Configure `Heroku Scheduler` to run the project periodically. Ideally, this project is to be ran monthly. The project can be ran more often without issue (no duplicate months in the output spreadsheet, or errors), but this would be a waste of computing power.
+* Configure `Heroku Scheduler` to run the project periodically (command: `npm run start`). Ideally, this project is to be ran monthly, but Heroku Scheduler only goes up to daily. The project can be ran more often without issue (no duplicate months in the output spreadsheet, or errors), but this would be a waste of computing power.
 * Start following logs in real time in `Logentries`, to ensure that things are working properly
 * In the `Settings` tab, click `Reveal Config Vars`, and add the following environment variables: 
   * `conf`: copy your local `conf.yml` file
