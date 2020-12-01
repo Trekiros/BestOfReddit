@@ -35,7 +35,7 @@ async function run() {
                 conf.size
             )
 
-            await googleService.insertTop(subredditName, {
+            /* await googleService.insertTop(subredditName, {
                 month: months[start.month()],
                 year: start.year(),
                 top: topPosts.map(redditPost => ({
@@ -45,7 +45,7 @@ async function run() {
                     score: redditPost.score,
                     url: `http://www.reddit.com/${redditPost.id}`,
                 }))
-            })
+            }) */
             
             // Avoid the "too many requests" error by throttling requests by at least one second
             await sleep(1000)

@@ -1,9 +1,9 @@
-const Snoowrap = require('snoowrap');
+const Reddit = require('reddit');
 const { httpGet, sleep } = require('./util').default
 
 
 exports.default = async (credentials) => {
-    const snoowrap = await new Snoowrap({
+    const reddit = await new Reddit({
         ...credentials,
         userAgent: 'BestOfReddit:1.0.0 (https://github.com/Trekiros/BestOfReddit)'
     })
@@ -36,38 +36,46 @@ exports.default = async (credentials) => {
                 const response = await httpGet(query)
                 resultsLength = response.length
 
+
                 // 2. Get updated scores for those items using the reddit client
-                for (let i = 0 ; i < response.length ; i++) {
-                    const redditPost = response[i]
-                    
-                    const start = Date.now()
-                    const score = await snoowrap.getSubmission(redditPost.id).score
-                    const end = Date.now()
+                const start = Date.now()
+                const info = await reddit.get(`/api/info?id=${
+                    response.map(redditPost => `t3_${redditPost.id}`).join(',')
+                }`)
+                const end = Date.now()
+                
+                // Rate limit: 60 requests per minute, or 1 request per second
+                // Plus 50ms just in case, to ensure the limit is never hit
+                if (end - start < 1050) {
+                    await sleep(end-start + 50) 
+                }
 
-                    // Rate limit: 60 requests per minute, or 1 request per second
-                    // Plus 50ms just in case, to ensure the limit is never hit
-                    if (end - start < 1050) {
-                        await sleep(end-start + 50) 
-                    }
+                const scoreMap = {}
+                info.data.children.forEach(redditPost => {
+                    scoreMap[redditPost.data.id] = redditPost.data.score
+                })
 
+
+                // 3. Sort these results
+                response.forEach(redditPost => {
+                    redditPost.score = scoreMap[redditPost.id]
                     
                     if (latest < redditPost.created_utc) {
                         latest = redditPost.created_utc
                     }
     
-                    // 3. Sort these results
-                    top.push({ redditPost, score })
+                    top.push(redditPost)
                     top.sort((post1, post2) => post2.score - post1.score)
                     if (top.length > limit) {
                         top.pop()
                     }
-                }
+                })
 
                 console.log(resultsLength, 'posts retrieved. Current top scores:', top.map(post => post.score).join(', '))
             } while ((resultsLength === PAGE_SIZE) && (latest < endDate.valueOf()/1000))
 
 
-            return top.map(entry => entry.redditPost)
+            return top
         }
     }
 }
