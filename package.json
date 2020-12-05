@@ -10,6 +10,7 @@
   "license": "UNLICENSED",
   "dependencies": {
     "axios": "^0.19.2",
+    "express": "^4.17.1",
     "googleapis": "^39.2.0",
     "js-yaml": "^3.14.0",
     "moment": "^2.27.0",

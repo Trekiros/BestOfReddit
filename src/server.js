@@ -1,16 +1,19 @@
-const http = require('http');
+const express = require("express");
+const path = require("path");
 
-exports.default = function runServer() {
-    const hostname = process.env.HOST_NAME | '127.0.0.1';
-    const port = process.env.PORT | 3000;
+module.exports.default = function runServer() {
+    // Properties
+    const port = process.env.PORT || 3000;
+    const static = path.join(__dirname, '../static');
+    
+    // Routes
+    const app = express();
+    app.use("/", express.static(static));
 
-    const server = http.createServer((req, res) => {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end('Hello World');
+    // Start listening
+    const server = app.listen(port, () => {
+        console.log("web server initialized on port ", port);
     });
 
-    server.listen(port, hostname, () => {
-    console.log(`Server running at http://${hostname}:${port}/`);
-    });
+    return {app: app, server: server};
 }
