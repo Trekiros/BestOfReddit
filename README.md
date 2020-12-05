@@ -10,7 +10,7 @@ A scrapper which generates a google sheet with the top 10 posts of each month fo
 * Enable Google Sheets API for your Google API, and download a `credentials.json` file following the instructions found [here](https://developers.google.com/sheets/api/quickstart/nodejs). Make sure you use the same Google Account which was used for the creation of the spreadsheet.
 * Write down the `client_id`, `project_id` and `client_secret` fields in `conf.yml`, using the values found in `credentials.json`. **Never share or commit these credentials.** They could be used to access and modify all of your Google Spreadsheets.
 * Create a Reddit script app [here](https://www.reddit.com/prefs/apps).
-* Use this new Reddit app to complete the `appId` and `appSecret` fields of the reddit category in `conf.yml`. **Never share or commer these credentials.** They could be used to access your reddit account.
+* Use this new Reddit app to complete the `appId` and `appSecret` fields of the reddit category in `conf.yml`. **Never share or commit these credentials.** They could be used to access your reddit account.
 * Complete the `username` and `password` fields in the reddit category of `conf.yml`, using the credentials of the reddit account which has created the reddit app. If you do not wish to use your personal reddit account for this, the project can just as easily be ran using a new reddit account.
 * Run the project for the first time: `npm start` or `node .`
 * On the first run, the project will ask you to follow a link to grant it authority over your Google Sheets file. Make sure you use the same Google Account which was used for the creation of the spreadsheet.

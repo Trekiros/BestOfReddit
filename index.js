@@ -21,7 +21,7 @@ async function run() {
 
         // Calculate timeslot of the job
         const earliest = await googleService.getEarliest(subredditName)
-        const latest = moment().subtract(5, 'days').startOf('month') // If ran daily, the sheet is updated on the 5th of each month
+        const latest = moment().subtract(4, 'days').startOf('month') // If ran daily, the sheet is updated on the 5th of each month
 
         let start = moment(earliest)
         while (start.isBefore(latest)) {
