@@ -4,6 +4,7 @@ const yaml = require('js-yaml')
 const GoogleService = require('./src/google').default
 const RedditService = require('./src/reddit').default
 const { months, sleep } = require('./src/util').default
+const runServer = require('./src/server').default
 
 async function run() {
     // If you have a no such file error here, make a local copy of conf-template.yml, named conf.yml
@@ -59,3 +60,6 @@ run()
         console.log('Job execution complete.')
     })
     .catch(console.error)
+
+// Running a mock web server so Heroku doesn't kill the process after 60 seconds:
+runServer()
